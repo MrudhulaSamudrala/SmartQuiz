@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
+DB_PATH = Path(__file__).resolve().parent / "quiz_history.db"
+
 DIFFICULTIES = ["Easy", "Medium", "Hard"]
 TIMER_OPTIONS = [5, 10, 15, 30, 60]
 OPTION_LABELS = ["A", "B", "C", "D"]
@@ -23,13 +25,13 @@ QUIZ_MODES = ["Timed Quiz", "No Timer Quiz"]
 MODE_TIMED = "Timed Quiz"
 MODE_UNTIMED = "No Timer Quiz"
 
-QUIZ_SOURCES = ["Topic/Text Input", "PDF Upload"]
-SOURCE_TOPIC = "Topic/Text Input"
+QUIZ_SOURCES = ["Topic / Subject", "PDF Upload"]
+SOURCE_TOPIC = "Topic / Subject"
 SOURCE_PDF = "PDF Upload"
 
-# Limit content sent to Gemini to avoid token overflow
+# PDF extracted text limits (topic mode uses short keywords — no min length)
 MAX_CONTENT_CHARS = 14_000
-MIN_CONTENT_CHARS = 50
+MIN_PDF_CONTENT_CHARS = 100
 
 GEMINI_MODELS = [
     os.getenv("GEMINI_MODEL", "").strip(),

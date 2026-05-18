@@ -27,10 +27,40 @@ def init_session():
         "loading": False,
         "pending_generation": None,
         "generation_error": None,
+        "student_name": "",
+        "student_name_saved": "",
+        "difficulty": None,
+        "attempt_saved": False,
+        "last_attempt_id": None,
+        "show_history": False,
+        "view_attempt_id": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+
+def get_student_name() -> str:
+    """
+    Read student name (read-only).
+    Widget key 'student_name' is owned by Streamlit — never assign to it after creation.
+    'student_name_saved' is a backup updated via on_change / generate click.
+    """
+    from_widget = (st.session_state.get("student_name") or "").strip()
+    if from_widget:
+        return from_widget
+    return (st.session_state.get("student_name_saved") or "").strip()
+
+
+def persist_student_name_backup() -> None:
+    """Save name to a non-widget key (safe to call after the text_input exists)."""
+    name = (st.session_state.get("student_name") or "").strip()
+    if name:
+        st.session_state.student_name_saved = name
+
+
+def has_student_name() -> bool:
+    return bool(get_student_name())
 
 
 def is_timed_mode() -> bool:
@@ -60,11 +90,18 @@ def reset_quiz():
     st.session_state.loading = False
     st.session_state.pending_generation = None
     st.session_state.generation_error = None
+    st.session_state.difficulty = None
+    st.session_state.attempt_saved = False
+    st.session_state.last_attempt_id = None
+    st.session_state.show_history = False
+    st.session_state.view_attempt_id = None
 
 
 def request_quiz_generation(params: dict[str, Any]):
     if st.session_state.loading or st.session_state.pending_generation:
         return
+    persist_student_name_backup()
+    params["student_name"] = get_student_name()
     st.session_state.generation_error = None
     st.session_state.pending_generation = params
     st.rerun()
@@ -77,12 +114,16 @@ def apply_generated_quiz(
     timer_secs: int,
     quiz_source: str,
     source_label: str = "",
+    difficulty: str = "",
 ):
     st.session_state.quiz_data = quiz
     st.session_state.quiz_type = quiz_type
     st.session_state.quiz_source = quiz_source
     st.session_state.source_label = source_label
     st.session_state.quiz_mode = quiz_mode
+    st.session_state.difficulty = difficulty
+    st.session_state.attempt_saved = False
+    st.session_state.last_attempt_id = None
     st.session_state.time_per_question = timer_secs
     st.session_state.quiz_generated = True
     st.session_state.quiz_started = False
@@ -97,6 +138,8 @@ def apply_generated_quiz(
 def resolve_page() -> str:
     if st.session_state.loading:
         return "loading"
+    if st.session_state.get("show_history") or st.session_state.get("view_attempt_id"):
+        return "history"
     if st.session_state.submitted or st.session_state.quiz_completed:
         return "results"
     if st.session_state.quiz_started:
@@ -110,6 +153,7 @@ def start_quiz():
     st.session_state.quiz_started = True
     st.session_state.quiz_completed = False
     st.session_state.submitted = False
+    st.session_state.attempt_saved = False
     st.session_state.current_question = 0
     st.session_state.answers = {}
     st.session_state.selected_answer = {}

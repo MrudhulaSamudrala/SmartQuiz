@@ -7,7 +7,7 @@ from config import (
     TYPE_ONE_WORD,
     TYPE_TRUE_FALSE,
 )
-from content_utils import truncate_content, validate_quiz_source
+from content_utils import validate_quiz_source
 from gemini_client import extract_json, generate_content
 from prompt_builder import build_quiz_prompt
 
@@ -42,20 +42,21 @@ def generate_quiz(
     difficulty: str,
     num_questions: int,
     quiz_type: str,
+    content_truncated: bool = False,
 ) -> list[dict]:
     """
-    Generate a quiz from source content (topic text or extracted PDF text).
+    Generate a quiz from a topic keyword or PDF-extracted text.
+    Content preparation (validation/truncation) happens in generation_service.
     """
     validate_quiz_source(source)
 
-    prepared, was_truncated = truncate_content(content)
     prompt = build_quiz_prompt(
         source=source,
-        content=prepared,
+        content=content,
         difficulty=difficulty,
         num_questions=num_questions,
         quiz_type=quiz_type,
-        content_truncated=was_truncated,
+        content_truncated=content_truncated,
     )
 
     raw = generate_content(prompt)

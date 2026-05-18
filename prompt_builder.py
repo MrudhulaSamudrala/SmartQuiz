@@ -8,20 +8,6 @@ from config import (
 )
 
 
-def _source_instructions(source: str) -> str:
-    if source == SOURCE_TOPIC:
-        return """SOURCE: Topic / study text provided by the user.
-Generate questions ONLY from the study material below.
-Do not add facts that are not supported by the material."""
-
-    if source == SOURCE_PDF:
-        return """SOURCE: Text extracted from an uploaded PDF document.
-Generate questions ONLY from the PDF content below.
-Do not use outside knowledge. Every question must be answerable from the text."""
-
-    return "Generate questions from the provided content."
-
-
 def _type_schema(quiz_type: str, num_questions: int) -> str:
     if quiz_type == QUIZ_TYPE_MCQ:
         return f"""Create exactly {num_questions} multiple-choice questions.
@@ -65,6 +51,63 @@ True/False: {{"type":"true_false","question":"...","correct_answer":true,"explan
 One-word: {{"type":"one_word","question":"...","correct_answer":"word","explanation":"..."}}"""
 
 
+def build_topic_prompt(
+    topic: str,
+    difficulty: str,
+    num_questions: int,
+    quiz_type: str,
+) -> str:
+    """
+    Keyword/topic-based generation.
+    Example: Generate a Medium difficulty MCQ quiz on Python Loops.
+    """
+    return f"""You are an expert quiz creator for students.
+
+Generate a {difficulty} difficulty {quiz_type} quiz on the topic: "{topic}".
+
+Use your knowledge of this subject to create accurate, educational questions.
+Questions should be appropriate for the {difficulty} level.
+Cover key concepts a student should know about "{topic}".
+
+{_type_schema(quiz_type, num_questions)}
+
+Return ONLY a valid JSON array. No markdown, no extra commentary.
+Explanations should be educational and concise.
+"""
+
+
+def build_pdf_prompt(
+    content: str,
+    difficulty: str,
+    num_questions: int,
+    quiz_type: str,
+    content_truncated: bool = False,
+) -> str:
+    """PDF mode: questions must come only from extracted document text."""
+    truncation_note = (
+        "\nNote: The PDF content was truncated to fit length limits. "
+        "Focus questions on the material provided."
+        if content_truncated
+        else ""
+    )
+
+    return f"""You are an expert quiz creator for students.
+
+Generate a {difficulty} difficulty {quiz_type} quiz using ONLY the PDF content below.
+Do not use outside knowledge. Every question must be answerable from the text.
+{truncation_note}
+
+--- PDF CONTENT START ---
+{content}
+--- PDF CONTENT END ---
+
+{_type_schema(quiz_type, num_questions)}
+
+Return ONLY a valid JSON array. No markdown, no extra commentary.
+Explanations should be educational and concise.
+"""
+
+
 def build_quiz_prompt(
     source: str,
     content: str,
@@ -73,29 +116,10 @@ def build_quiz_prompt(
     quiz_type: str,
     content_truncated: bool = False,
 ) -> str:
-    truncation_note = (
-        "\nNote: The source content was truncated to fit length limits. "
-        "Focus questions on the material provided."
-        if content_truncated
-        else ""
-    )
-
-    return f"""You are an expert quiz creator for students.
-
-{_source_instructions(source)}
-
-Difficulty: {difficulty}
-Number of questions: exactly {num_questions}
-Quiz type: {quiz_type}
-{truncation_note}
-
---- STUDY MATERIAL START ---
-{content}
---- STUDY MATERIAL END ---
-
-{_type_schema(quiz_type, num_questions)}
-
-Return ONLY a valid JSON array. No markdown, no extra commentary.
-Explanations should be educational and concise.
-Questions must match the {difficulty} difficulty level.
-"""
+    if source == SOURCE_TOPIC:
+        return build_topic_prompt(content, difficulty, num_questions, quiz_type)
+    if source == SOURCE_PDF:
+        return build_pdf_prompt(
+            content, difficulty, num_questions, quiz_type, content_truncated
+        )
+    return build_topic_prompt(content, difficulty, num_questions, quiz_type)
